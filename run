@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -eux -o pipefail
+
+IMAGE_NAME="moritzheiber/consul-connect"
+LOG_LEVEL=${LOG_LEVEL:-debug}
+export IMAGE_NAME LOG_LEVEL
+
+build() {
+  docker build -t "${IMAGE_NAME}" .
+}
+
+_cleanup() {
+  docker-compose kill
+  docker-compose rm -fv
+}
+
+compose() {
+  trap _cleanup EXIT TERM
+  docker-compose up
+}
+
+usage() {
+    echo "Usage: $0 build | compose"
+    exit 0
+}
+
+CMD=${1:-}
+shift || true
+case ${CMD} in
+  build) build ;;
+  compose) compose ;;
+  *) usage ;;
+esac

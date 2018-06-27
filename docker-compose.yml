@@ -1,0 +1,85 @@
+version: "3"
+services:
+  server:
+    image: ${IMAGE_NAME:-moritzheiber/consul-connect}
+    command: agent -server -ui -log-level=${LOG_LEVEL:-info} -advertise='{{GetAllInterfaces | include "network" "10.120.0.0/24" | attr "address"}}' -client=0.0.0.0 -data-dir=/tmp/state -bootstrap -config-dir=/tmp/server
+    networks:
+      - gossip
+      - external
+    ports:
+      - "8501:8500"
+  db-agent:
+    restart: on-failure
+    image: ${IMAGE_NAME:-moritzheiber/consul-connect}
+    cap_add:
+      - NET_BIND_SERVICE
+    command: agent -log-level=debug -node=database -join=server -client='{{GetAllInterfaces | include "network" "10.121.0.0/24" | attr "address"}}' -bind='{{GetAllInterfaces | include "network" "10.120.0.0/24" | attr "address"}}' -data-dir=/tmp/state -dns-port 53 -config-dir /tmp/db
+    networks:
+      gossip:
+      consul-db:
+        ipv4_address: 10.121.0.254
+
+  db-proxy:
+    restart: on-failure
+    image: ${IMAGE_NAME:-moritzheiber/consul-connect}
+    environment:
+      CONSUL_HTTP_ADDR: 10.121.0.254:8500
+    command: connect proxy -service postgres -service-addr 10.121.0.10:5432 -listen=10.123.0.253:20001 -register
+    networks:
+      consul-db:
+        ipv4_address: 10.121.0.253
+      proxy:
+        ipv4_address: 10.123.0.253
+  db:
+    image: postgres:10-alpine
+    dns: 10.121.0.254
+    networks:
+      consul-db:
+        ipv4_address: 10.121.0.10
+  client-agent:
+    restart: on-failure
+    image: ${IMAGE_NAME:-moritzheiber/consul-connect}
+    cap_add:
+      - NET_BIND_SERVICE
+    command: agent -log-level=debug -node=client -join=server -client='{{GetAllInterfaces | include "network" "10.122.0.0/24" | attr "address"}}' -bind='{{GetAllInterfaces | include "network" "10.120.0.0/24" | attr "address"}}' -data-dir=/tmp/state -dns-port 53 -config-dir=/tmp/client
+    networks:
+      gossip:
+      consul-client:
+        ipv4_address: 10.122.0.254
+  client-proxy:
+    restart: on-failure
+    image: ${IMAGE_NAME:-moritzheiber/consul-connect}
+    environment:
+      CONSUL_HTTP_ADDR: 10.122.0.254:8500
+    command: connect proxy -service client -upstream=postgres:5432
+    networks:
+      proxy:
+      consul-client:
+        ipv4_address: 10.122.0.253
+
+networks:
+  gossip:
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.120.0.0/24
+  consul-db:
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.121.0.0/24
+  consul-client:
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.122.0.0/24
+  proxy:
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.123.0.0/24
+  external:
