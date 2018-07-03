@@ -19,7 +19,7 @@ This will provision the following setup:
 1. A Consul server, with its UI exposed on [localhost:8500/ui](http://localhost:8500). ACLs are disabled, the default datacenter `dc1` is used.
 2. Two Consul agents, `db-agent` and `client-agent`, connected to the server via a `gossip` network, so they can form a cluster
 3. A custom, unmanaged [connect proxy](https://www.consul.io/docs/connect/proxies.html), registering with the Consul cluster as a connection handler for the `postgres` service
-4. A PostgreSQL database container, running the verbatim setup (connections are accepted from anywhere, the use is `postgres`, no password), able to talk to `db-agent` and `db-proxy`
+4. A PostgreSQL database container, running the verbatim default setup (connections are accepted from anywhere, the user is `postgres`, no password), able to talk to `db-agent` and `db-proxy`
 5. A `client-proxy` container, which runs a local proxy, able to forward connections to the PostgreSQL container using Consul Connect.
 
 ### Tearing it all down again
